@@ -33,12 +33,20 @@ func home(w http.ResponseWriter, r *http.Request) {
 	// Then we write it to the ResponseWriter using the Write method.
 	// The Write method writes the data to the connection as part of an HTTP reply.
 	// It returns the number of bytes written and any error encountered.
-	bytes, error := w.Write([]byte("Hello from Amber!"))
+	bytes, error := w.Write([]byte("Hello from Snippetbox!"))
 	if error != nil {
 		fmt.Println(error)
 	} else {
 		fmt.Println("Bytes written:", bytes)
 	}
+}
+
+func snippetView(w http.ResponseWriter, r *http.Request) {
+	w.Write([]byte("Display a specific snippet..."))
+}
+
+func snippetCreate(w http.ResponseWriter, r *http.Request) {
+	w.Write([]byte("Display a new form for creating a new snippet..."))
 }
 
 func main() {
@@ -52,13 +60,24 @@ func main() {
 	// Register the home handler function for the "/" URL path.
 	mux.HandleFunc("/", home)
 
+	mux.HandleFunc("/snippet/view", snippetView)
+	mux.HandleFunc("/snippet/create", snippetCreate)
+
 	log.Println("starting server on: 4000")
 
 	// Start the HTTP server on port 4000 and use the mux as the handler.
 	// The function takes two parameters: the TCP network address to listen on (in this case, ":4000" which means all interfaces on port 4000)
+	// The default format is "host:port", in our case of localhost our computer we're supplying the port for all network interfaces connecting to port 4000.
 	// and the handler to use (in this case, mux).
 	// This is important to note that ListenAndServe is a blocking function, meaning it will run indefinitely until the program is terminated.
 	// This will always return a non-nil error which means the server has stopped or failed at any stage during starting.
 	err := http.ListenAndServe(":4000", mux)
 	log.Fatal(err)
 }
+
+// Extra notes:
+// err := http.ListenAndServe(":4000", mux)
+// In Go certain times we use named ports like :http or :http-alt instead of a number.
+// In this case the system will look up the port number in the /etc/services file on Unix-like systems
+// or the registry on Windows systems. For example, :http corresponds to port 80 and :https corresponds to port 443.
+// However, it is more common to use numeric port numbers directly, especially in development and testing environments.
