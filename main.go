@@ -1,5 +1,7 @@
 package main
 
+// This uses servemux which is a relatively new addition to Go's net/http package.
+// More mainstream option is to use gorilla/mux or chi router.
 import (
 	"fmt"
 	"log"
@@ -49,11 +51,38 @@ func snippetView(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	msg := fmt.Sprintf("Display a specific snippet with ID %d", id)
+
+	// using w.Write() to send specific HTTP response bodies to a user. And while this is the simplest and most fundamental way to send a response, in
+	// practice it’s far more common to pass your http.ResponseWriter value to another function
+	// that writes the response for you.
+
+	// The key thing to understand is the http.ResponseWriter value in your
+	// handlers has a Write() method, it satisfies the io.Writer interface.
+
+	// That means you can use standard library functions like io.WriteString() and the
+	// fmt.Fprint*() family (all of which accept an io.Writer parameter) to write plain-text
+	// response bodies too.
 	w.Write([]byte(msg))
+
+	// Instead of this...
+	// w.Write([]byte("Hello world"))
+	// You can do this...
+	// io.WriteString(w, "Hello world")
+	fmt.Fprint(w, "Hello world")
+
 }
 
 func snippetCreate(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("Display a new form for creating a new snippet..."))
+}
+
+func snippetCreatePost(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Server", "Go")
+
+	w.WriteHeader(http.StatusCreated) // writeHeader must be called before write() as write sends the default 200. Can be called once per response.
+
+	w.Write([]byte(`{"id": 123, "message": "Snippet successfully created!"}`))
 }
 
 func main() {
@@ -84,6 +113,8 @@ func main() {
 	mux.HandleFunc("GET /snippet/create", snippetCreate)
 
 	mux.HandleFunc("GET /snippet/view/{id}", snippetView)
+
+	mux.HandleFunc("POST /snippet/createPost", snippetCreatePost)
 
 	log.Println("starting server on: 4000")
 
