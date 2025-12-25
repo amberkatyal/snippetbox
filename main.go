@@ -114,7 +114,7 @@ func main() {
 
 	mux.HandleFunc("GET /snippet/view/{id}", snippetView)
 
-	mux.HandleFunc("POST /snippet/createPost", snippetCreatePost)
+	mux.HandleFunc("POST /snippet/create", snippetCreatePost)
 
 	log.Println("starting server on: 4000")
 
