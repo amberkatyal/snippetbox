@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strconv"
 )
 
 // Define a home handler function which writes a byte slice containing
@@ -42,7 +43,13 @@ func home(w http.ResponseWriter, r *http.Request) {
 }
 
 func snippetView(w http.ResponseWriter, r *http.Request) {
-	w.Write([]byte("Display a specific snippet..."))
+	id, err := strconv.Atoi(r.PathValue("id"))
+	if err != nil || id < 1 {
+		http.NotFound(w, r)
+		return
+	}
+	msg := fmt.Sprintf("Display a specific snippet with ID %d", id)
+	w.Write([]byte(msg))
 }
 
 func snippetCreate(w http.ResponseWriter, r *http.Request) {
@@ -58,10 +65,25 @@ func main() {
 
 	mux := http.NewServeMux()
 	// Register the home handler function for the "/" URL path.
-	mux.HandleFunc("/", home)
+	// When a route ends with "/" or "/static/" -- it is known as subtree path pattern.
+	// the "/" route pattern acts like a catch-all. The pattern essentially
+	// means match a single slash, followed by anything (or nothing at all).
+	// mux.HandleFunc("/", home)
+	// To prevent subtree path patterns from acting like they have a wildcard at the end, you can
+	// append the special character sequence {$}
+	// So if you have the route pattern "/{$}", it effectively means match a single slash, followed
+	// by nothing else. It will only match requests where the URL path is exactly /.
+	mux.HandleFunc("GET /{$}", home) // Restrict this route to exact matches on / only.
 
-	mux.HandleFunc("/snippet/view", snippetView)
-	mux.HandleFunc("/snippet/create", snippetCreate)
+	// Now a request for an unregistered URL path like http://localhost:4000/foo/bar.
+	// Will return a 404 Not Found response instead of being handled by the home handler.
+
+	// Go's servemux has different matching rules depending on whether the pattern ends with a trailing slash or not.
+	// If the pattern ends with a trailing slash (e.g., "/snippet/"), it matches any URL path that starts with that pattern.
+	// If the pattern does not end with a trailing slash (e.g., "/snippet"), it matches only the exact URL path.
+	mux.HandleFunc("GET /snippet/create", snippetCreate)
+
+	mux.HandleFunc("GET /snippet/view/{id}", snippetView)
 
 	log.Println("starting server on: 4000")
 
@@ -75,9 +97,41 @@ func main() {
 	log.Fatal(err)
 }
 
-// Extra notes:
-// err := http.ListenAndServe(":4000", mux)
+// ---------------------------
+// |  Extra notes:           |
+// ---------------------------
+//
+// ** err := http.ListenAndServe(":4000", mux) **
+//
 // In Go certain times we use named ports like :http or :http-alt instead of a number.
 // In this case the system will look up the port number in the /etc/services file on Unix-like systems
 // or the registry on Windows systems. For example, :http corresponds to port 80 and :https corresponds to port 443.
 // However, it is more common to use numeric port numbers directly, especially in development and testing environments.
+//
+// ---------------------------
+//
+// ** ServeMux Features: **
+//
+// 1. Request URL Paths are automatically sanitized. If request URL path contains any . or .. elements or repeated slashes, they are automatically redirected to an equivalent clean URL.
+// For example, if a user makes a request to /foo/bar/..//baz they will automatically be sent a 301 Permanent Redirect to /foo/baz instead.
+// 2. If a subtree path has been registered and a request is received for that subtree path without a trailing slash, then the user will
+// automatically be sent a 301 Permanent Redirect to the subtree path with the slash added. For example, if you
+// have registered the subtree path /foo/, then any request to /foo will be redirected to /foo/.
+//
+// ---------------------------
+//
+// ** Default ServeMux vs ServeMux: **
+//
+// Go provides two ways to create an HTTP server:
+// 1. Using the default ServeMux (the global one) by calling http.HandleFunc and http.ListenAndServe.
+// 2. Creating a custom ServeMux instance using http.NewServeMux() and passing it to http.ListenAndServe.
+//
+// Because http.DefaultServeMux is a global variable in the standard library, it means *any*
+// Go code in your project can access it and potentially register a route. If you have a large
+// project codebase (especially one that is being worked on by many people), that can
+// make it harder to ensure all route declarations for your application are easily
+// discoverable in one central place.
+// It also means that any third-party packages that your application imports can register
+// routes with http.DefaultServeMux too. If one of those third-party packages is
+// compromised, they could potentially use http.DefaultServeMux to expose a malicious
+// handler to the web. It’s simple to avoid this risk by just not using http.DefaultServeMux.
